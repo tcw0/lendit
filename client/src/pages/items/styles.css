@@ -1,0 +1,25 @@
+.rs-picker-daterange-menu {
+  z-index: 9999 !important; /* added a large random number */
+  position: absolute;
+}
+
+.autocomplete-container {
+  margin-top: 0.5rem;
+  margin-left: 1rem;
+  border: 0;
+}
+
+.autocomplete-input {
+  height: 3rem;
+  width: 12.5rem !important;
+  border-color: lightgrey;
+  border: 1;
+}
+
+.autocomplete-popover {
+  z-index: 99999;
+}
+
+.autocomplete-list {
+  z-index: 99999;
+}

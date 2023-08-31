@@ -1,0 +1,2183 @@
+openapi: 3.0.1
+info:
+  version: 1.0.0
+  title: Lendit Server
+  description: API for lendit backend.
+servers:
+  - url: "{baseURL}/api" # for local testing
+    variables:
+      baseURL:
+        default: "http://localhost:8080"
+        description: Base URL of the server
+    description: Local server
+tags:
+  - name: default
+    description: some testing stuff
+  - name: users
+    description: user management, user information and settings
+  - name: items
+    description: browse, edit and update items
+  - name: rentals
+    description: control rentals
+paths:
+  /:
+    get:
+      tags:
+        - default
+      summary: Get Hello World!
+      description: Get Hello World!
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HelloWorldResponseDto"
+  /users/{userID}/create-payment-intent/{paymentMethodID}:
+    post:
+      tags:
+        - users
+      security:
+        - JWT: []
+      summary: Create Payment Intent
+      operationId: CreateStripePayment
+      description: Creates a payment intent and interacts with Stripe's API
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: paymentMethodID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                payment:
+                  $ref: '#/components/schemas/PaymentDto'
+                savePaymentMethod:
+                  type: boolean
+                rentalID:
+                  type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  clientSecret:
+                    type: string
+                  requiresAction:
+                    type: boolean
+        '400':
+          description: Invalid request
+        '500':
+          description: Internal server error
+  /users/pictureUpload:
+    post:
+      tags:
+        - users
+      security:
+        - JWT: []
+      summary: Upload a file
+      operationId: uploadPicture
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        "200":
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PictureDto"
+        "400":
+          description: Invalid file format or missing file
+        "500":
+          description: Failed to upload file
+  /users/register:
+    post:
+      tags:
+        - users
+      summary: Create new user
+      description: Create new user
+      operationId: createUser
+      requestBody:
+        description: Create user object
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewUserDto"
+      responses:
+        "201":
+          description: successful operation
+  /users/login:
+    post:
+      tags:
+        - users
+      summary: Logs user into the system
+      description: Logs user into the system by email & password
+      operationId: loginUser
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+              required:
+                - email
+                - password
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: "#/components/schemas/UserMetaDataDto"
+                  token:
+                    type: string
+                  firstLogin:
+                    type: boolean
+                required:
+                  - user
+                  - token
+        "400":
+          description: Invalid email/password supplied
+  /users/{userID}/changepassword:
+    post:
+      tags:
+        - users
+      summary: Change password of user
+      description: Change password of user
+      operationId: changePassword
+      security:
+        - JWT: []
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                oldPassword:
+                  type: string
+                newPassword:
+                  type: string
+              required:
+                - oldPassword
+                - newPassword
+      responses:
+        "204":
+          description: successful operation
+        "401":
+          description: Unauthorized
+        "400":
+          description: Invalid user ID supplied
+        "404":
+          description: User not found
+        "405":
+          description: Validation exception
+  /users/{userID}/verify/{verificationID}:
+    post:
+      tags:
+        - users
+      summary: Verify user by verification ID
+      description: Verify user by verification ID
+      operationId: verifyUser
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: verificationID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+        "400":
+          description: Invalid verification ID supplied
+  /users/{userID}:
+    get:
+      tags:
+        - users
+      summary: Get user by user ID
+      description: Get user by user ID
+      security:
+        - JWT: []
+      operationId: getUserByID
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDto"
+        "400":
+          description: Invalid user ID supplied
+        "404":
+          description: User not found
+    put:
+      tags:
+        - users
+      summary: Update user by ID
+      description: Update user by ID of the logged in user
+      security:
+        - JWT: []
+      operationId: updateUserByID
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserDto"
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDto"
+        "400":
+          description: Invalid user ID supplied
+        "404":
+          description: User not found
+        "405":
+          description: Validation exception
+    delete:
+      tags:
+        - users
+      summary: Delete user by ID
+      description: Delete user by ID of the logged in user
+      operationId: deleteUserByID
+      security:
+        - JWT: []
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+        "400":
+          description: Invalid user ID supplied
+        "404":
+          description: User not found
+  /users/{userID}/address:
+    get:
+      tags:
+        - users
+      summary: Get user all addresses by user ID
+      description: Get all user addresses by user ID
+      security:
+        - JWT: []
+      operationId: getUserAddressesByID
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AddressDto"
+        "400":
+          description: Invalid user ID supplied
+        "404":
+          description: User not found
+    post:
+      tags:
+        - users
+      summary: Create new address for user
+      description: Create new address for user
+      operationId: createUserAddress
+      security:
+        - JWT: []
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Create address object
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddressDto"
+      responses:
+        default:
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddressDto"
+  /users/{userID}/address/{addressID}:
+    put:
+      tags:
+        - users
+      summary: Update user address by ID
+      description: Update user address by ID
+      operationId: updateUserAddressByID
+      security:
+        - JWT: []
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: addressID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Update address object
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddressDto"
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AddressDto"
+        "400":
+          description: Invalid user ID supplied
+        "404":
+          description: User not found
+        "405":
+          description: Validation exception
+    delete:
+      tags:
+        - users
+      summary: Delete user address by ID
+      description: Delete user address by ID
+      operationId: deleteUserAddressByID
+      security:
+        - JWT: []
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: addressID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+        "400":
+          description: Invalid user ID supplied
+        "404":
+          description: User not found
+  /users/{userID}/items:
+    get:
+      tags:
+        - users
+      summary: Get all user items
+      description: Get all items for an existing user
+      operationId: getUserItems
+      security:
+        - JWT: []
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ItemMetaDataDto"
+        "400":
+          description: Invalid user ID supplied
+        "404":
+          description: User not found
+  /users/{userID}/ratings:
+    get:
+      tags:
+        - users
+      summary: Get all user ratings
+      description: Get all ratings for an existing user
+      operationId: getAllUserRatings
+      security:
+        - JWT: []
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserRatingDto"
+        "400":
+          description: Invalid user ID supplied
+        "404":
+          description: User not found
+  /users/{userID}/payment:
+    get:
+      tags:
+        - users
+      summary: Get user payment methods
+      description: Retrieve the payment methods of a user
+      operationId: getUserPaymentMethods
+      security:
+        - JWT: []
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved user payment methods
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PaymentMethodDto'
+        '400':
+          description: Invalid user ID
+    post:
+      tags:
+        - users
+      summary: Add payment method
+      description: Add a new payment method for a user
+      operationId: addPaymentMethod
+      security:
+        - JWT: []
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewPaymentMethodDto'
+      responses:
+        '201':
+          description: Successfully added payment method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentMethodDto'
+        '400':
+          description: Invalid user ID or payment method data
+  /users/{userID}/payment/{paymentMethodID}:
+    put:
+      tags:
+        - users
+      summary: Update payment method
+      description: Update a payment method for a user
+      operationId: updatePaymentMethod
+      security:
+        - JWT: []
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: paymentMethodID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentMethodDto'
+      responses:
+        '200':
+          description: Successfully updated payment method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentMethodDto'
+        '400':
+          description: Invalid user ID or payment method data
+    delete:
+      tags:
+        - users
+      summary: Delete paymentMethod by ID
+      description: Delete paymentMethod by ID of the logged in user
+      operationId: deletePaymentMethod
+      security:
+        - JWT: []
+      parameters:
+        - name: userID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: paymentMethodID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+        "400":
+          description: Invalid user ID or paymentMethodID supplied
+        "404":
+          description: User not found
+  /items:
+    post:
+      tags:
+        - items
+      summary: Add a new item
+      description: Add a new item
+      operationId: addItem
+      security:
+        - JWT: []
+      requestBody:
+        description: Create a new item
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewItemDto"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemDto"
+        "405":
+          description: Invalid input
+  /items/search:
+    get:
+      tags:
+        - items
+      summary: search item
+      description: search item using parameters
+      operationId: searchItem
+      parameters:
+        - in: query
+          name: term
+          schema:
+            type: string
+        - in: query
+          name: category
+          schema:
+            $ref: "#/components/schemas/CategoryEnum"
+        - in: query
+          name: priceFrom
+          schema:
+            type: integer
+        - in: query
+          name: priceTo
+          schema:
+            type: integer
+        - in: query
+          name: availabilityFrom
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: availabilityTo
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: latitude
+          schema:
+            type: number
+        - in: query
+          name: longitude
+          schema:
+            type: number
+        - in: query
+          name: featured
+          schema:
+            type: boolean
+        - in: query
+          name: distance
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ItemMetaDataDto"
+  /items/featured:
+    get:
+      tags:
+        - items
+      summary: featured items
+      description: get featured items based on category
+      operationId: featuredItems
+      parameters:
+        - in: query
+          name: category
+          required: true
+          schema:
+            $ref: "#/components/schemas/CategoryEnum"
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ItemMetaDataDto"
+  /items/{itemID}:
+    get:
+      tags:
+        - items
+      summary: Find item by ID
+      description: Returns a single item
+      operationId: getItemById
+      parameters:
+        - name: itemID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemDto"
+        "400":
+          description: Invalid ID supplied
+        "404":
+          description: Item not found
+    put:
+      tags:
+        - items
+      summary: Update item by ID
+      description: Update an existing item by ID
+      operationId: updateItemByID
+      security:
+        - JWT: []
+      parameters:
+        - name: itemID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItemDto"
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemDto"
+        "400":
+          description: Invalid item ID supplied
+        "404":
+          description: Item not found
+        "405":
+          description: Validation exception
+    delete:
+      tags:
+        - items
+      summary: Delete item by ID
+      description: Delete item by ID
+      operationId: deleteItemByID
+      security:
+        - JWT: []
+      parameters:
+        - name: itemID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+        "400":
+          description: Invalid item ID
+  /items/{itemID}/user/lender:
+    get:
+      tags:
+        - items
+      summary: Get item lender
+      description: Get item lender
+      operationId: getItemLender
+      parameters:
+        - name: itemID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserMetaDataDto"
+        "400":
+          description: Invalid item ID supplied
+        "404":
+          description: Item not found
+  /items/{itemID}/metadata:
+    get:
+      tags:
+        - items
+      summary: Get item metadata
+      description: Get item metadata
+      operationId: getItemMetadata
+      parameters:
+        - name: itemID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemMetaDataDto"
+        "400":
+          description: Invalid item ID supplied
+        "404":
+          description: Item not found
+  /items/{itemID}/availability:
+    get:
+      tags:
+        - items
+      summary: Get item availability
+      description: Get item availability
+      operationId: getItemAvailability
+      parameters:
+        - name: itemID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityDto"
+        "400":
+          description: Invalid item ID supplied
+        "404":
+          description: Item not found
+    post:
+      tags:
+        - items
+      summary: Add item availability
+      description: Add item availability
+      operationId: addItemAvailability
+      security:
+        - JWT: []
+      parameters:
+        - name: itemID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Create a new item availability
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AvailabilityDto"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvailabilityDto"
+        "400":
+          description: Invalid item ID supplied
+        "404":
+          description: Item not found
+        "405":
+          description: Invalid input
+  /items/{itemID}/rentals:
+    get:
+      tags:
+        - items
+      summary: Get all item rentals
+      description: Get all rentals for an existing item
+      operationId: getItemRentals
+      security:
+        - JWT: []
+      parameters:
+        - name: itemID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RentalDto"
+        "400":
+          description: Invalid item ID supplied
+        "404":
+          description: Item not found
+  /items/{itemID}/ratings:
+    get:
+      tags:
+        - items
+      summary: Get all item ratings
+      description: Get all ratings for an existing item
+      operationId: getAllItemRatings
+      security:
+        - JWT: []
+      parameters:
+        - name: itemID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ItemRatingDto"
+        "400":
+          description: Invalid item ID supplied
+        "404":
+          description: Item not found
+  /items/{itemID}/featured:
+    post:
+      tags:
+        - items
+      summary: Add featured item
+      description: Add featured item
+      operationId: addFeaturedItem
+      security:
+        - JWT: []
+      parameters:
+        - name: itemID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Create a new featured item
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewFeaturedDto"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemDto"
+        "400":
+          description: Invalid item ID supplied
+        "404":
+          description: Item not found
+        "405":
+          description: Invalid input
+  /rentals:
+    get:
+      tags:
+        - rentals
+      summary: Get all rentals
+      description: Get all rentals
+      operationId: getAllRentals
+      security:
+        - JWT: []
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RentalMetadataDto"
+    post:
+      tags:
+        - rentals
+      summary: Place new rental
+      description: Place a new rental for an offered item
+      operationId: placeRental
+      security:
+        - JWT: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewRentalDto"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalDto"
+        "405":
+          description: Invalid input
+  /rentals/{rentalID}:
+    get:
+      tags:
+        - rentals
+      summary: Get an existing Rental by ID
+      description: Get an existing Rental by ID
+      operationId: getRentalById
+      security:
+        - JWT: []
+      parameters:
+        - name: rentalID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalDto"
+        "400":
+          description: Invalid rental ID supplied
+        "404":
+          description: Rental not found
+        "405":
+          description: Validation exception
+  /rentals/{rentalID}/accept:
+    post:
+      tags:
+        - rentals
+      summary: Accept rental
+      description: Accept a rental request
+      operationId: acceptRental
+      security:
+        - JWT: []
+      parameters:
+        - name: rentalID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalDto"
+        "400":
+          description: Invalid rental ID supplied
+        "404":
+          description: Rental not found
+  /rentals/{rentalID}/decline:
+    post:
+      tags:
+        - rentals
+      summary: Decline rental
+      description: Decline a rental request
+      operationId: declineRental
+      security:
+        - JWT: []
+      parameters:
+        - name: rentalID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalDto"
+        "400":
+          description: Invalid rental ID supplied
+        "404":
+          description: Rental not found
+  /rentals/{rentalID}/pay/{paymentId}:
+    post:
+      tags:
+        - rentals
+      summary: Pay rental
+      description: Pay for a rental
+      operationId: payRental
+      security:
+        - JWT: []
+      parameters:
+        - name: rentalID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RentalDto"
+        "400":
+          description: Invalid rental ID supplied
+        "404":
+          description: Rental not found
+  /rentals/{rentalID}/message:
+    get:
+      tags:
+        - rentals
+      summary: Get all messages
+      description: Get all messages for an existing rental by ID
+      operationId: getAllMessagesForRental
+      security:
+        - JWT: []
+      parameters:
+        - name: rentalID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ChatMessageDto"
+        "400":
+          description: Invalid rental ID supplied
+        "404":
+          description: Rental not found
+    post:
+      tags:
+        - rentals
+      summary: Create new message
+      description: Create a new message for an existing rental by ID
+      operationId: createMessage
+      security:
+        - JWT: []
+      parameters:
+        - name: rentalID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewChatMessageDto"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChatMessageDto"
+        "400":
+          description: Invalid rental ID supplied
+        "404":
+          description: Rental not found
+        "405":
+          description: Invalid input
+  /rentals/{rentalID}/payment:
+    get:
+      tags:
+        - rentals
+      summary: Get rental payment
+      description: Get payment for an existing rental by ID
+      operationId: getPayment
+      security:
+        - JWT: []
+      parameters:
+        - name: rentalID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentDto"
+        "400":
+          description: Invalid rental ID supplied
+        "404":
+          description: Rental not found
+  /rentals/{rentalID}/handover:
+    get:
+      tags:
+        - rentals
+      summary: Get rental handover
+      description: Get handover for an existing rental by ID
+      operationId: getHandover
+      security:
+        - JWT: []
+      parameters:
+        - name: rentalID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: handoverType
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/HandoverTypeEnum"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HandoverDto"
+        "204":
+          description: No handover found
+        "400":
+          description: Invalid rental ID supplied
+        "404":
+          description: Rental not found
+    post:
+      tags:
+        - rentals
+      summary: Create new handover
+      description: Create a new handover for an existing rental by ID
+      operationId: createHandover
+      security:
+        - JWT: []
+      parameters:
+        - name: rentalID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewHandoverDto"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HandoverDto"
+        "400":
+          description: Invalid rental ID supplied
+        "404":
+          description: Rental not found
+        "405":
+          description: Invalid input
+  /rentals/{rentalID}/handover/accept:
+    post:
+      tags:
+        - rentals
+      summary: Accept handover
+      description: Accept a handover for an existing rental by ID
+      operationId: acceptHandover
+      security:
+        - JWT: []
+      parameters:
+        - name: rentalID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: handoverType
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/HandoverTypeEnum"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HandoverDto"
+        "400":
+          description: Invalid rental ID supplied
+        "404":
+          description: Rental not found
+  /rentals/{rentalID}/handover/decline:
+    post:
+      tags:
+        - rentals
+      summary: Decline handover
+      description: Decline a handover for an existing rental by ID
+      operationId: declineHandover
+      security:
+        - JWT: []
+      parameters:
+        - name: rentalID
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: handoverType
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/HandoverTypeEnum"
+      responses:
+        "200":
+          description: successful operation
+        "400":
+          description: Invalid rental ID supplied
+        "404":
+          description: Rental not found
+  /rentals/{rentalID}/item:
+    get:
+      tags:
+        - rentals
+      summary: Get rental item
+      description: Get item for an existing rental by ID
+      operationId: getRentalItem
+      security:
+        - JWT: []
+      parameters:
+        - name: rentalID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemMetaDataDto"
+        "400":
+          description: Invalid rental ID supplied
+        "404":
+          description: Rental not found
+  /rentals/{rentalID}/item/rating:
+    get:
+      tags:
+        - rentals
+      summary: Get rental item rating
+      description: Get rating for an existing rental by ID
+      operationId: getRentalItemRating
+      security:
+        - JWT: []
+      parameters:
+        - name: rentalID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemRatingDto"
+        "204":
+          description: No rating found
+        "400":
+          description: Invalid rental ID supplied
+        "404":
+          description: Rental not found
+    post:
+      tags:
+        - rentals
+      summary: Create new item rating
+      description: Create a new rating for an existing rental by ID
+      operationId: createRentalItemRating
+      security:
+        - JWT: []
+      parameters:
+        - name: rentalID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewRatingDto"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemRatingDto"
+        "400":
+          description: Invalid rental ID supplied
+        "404":
+          description: Rental not found
+        "405":
+          description: Invalid input
+  /rentals/{rentalID}/user/renter:
+    get:
+      tags:
+        - rentals
+      summary: Get rental renter
+      description: Get renter for an existing rental by ID
+      operationId: getRentalRenter
+      security:
+        - JWT: []
+      parameters:
+        - name: rentalID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserMetaDataDto"
+        "400":
+          description: Invalid rental ID supplied
+        "404":
+          description: Rental not found
+  /rentals/{rentalID}/user/renter/rating:
+    get:
+      tags:
+        - rentals
+      summary: Get rental renter rating
+      description: Get rating for an existing rental by ID
+      operationId: getRentalRenterRating
+      security:
+        - JWT: []
+      parameters:
+        - name: rentalID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRatingDto"
+        "204":
+          description: No rating found
+        "400":
+          description: Invalid rental ID supplied
+        "404":
+          description: Rental not found
+    post:
+      tags:
+        - rentals
+      summary: Create new renter rating
+      description: Create a new rating for an existing rental by ID
+      operationId: createRentalRenterRating
+      security:
+        - JWT: []
+      parameters:
+        - name: rentalID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewRatingDto"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRatingDto"
+        "400":
+          description: Invalid rental ID supplied
+        "404":
+          description: Rental not found
+        "405":
+          description: Invalid input
+  /rentals/{rentalID}/user/lender:
+    get:
+      tags:
+        - rentals
+      summary: Get rental lender
+      description: Get lender for an existing rental by ID
+      operationId: getRentalLender
+      security:
+        - JWT: []
+      parameters:
+        - name: rentalID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserMetaDataDto"
+        "400":
+          description: Invalid rental ID supplied
+        "404":
+          description: Rental not found
+  /rentals/{rentalID}/user/lender/rating:
+    get:
+      tags:
+        - rentals
+      summary: Get rental lender rating
+      description: Get rating for an existing rental by ID
+      operationId: getRentalLenderRating
+      security:
+        - JWT: []
+      parameters:
+        - name: rentalID
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRatingDto"
+        "204":
+          description: No rating found
+        "400":
+          description: Invalid rental ID supplied
+        "404":
+          description: Rental not found
+    post:
+      tags:
+        - rentals
+      summary: Create new lender rating
+      description: Create a new rating for an existing rental by ID
+      operationId: createRentalLenderRating
+      security:
+        - JWT: []
+      parameters:
+        - name: rentalID
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewRatingDto"
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRatingDto"
+        "400":
+          description: Invalid rental ID supplied
+        "404":
+          description: Rental not found
+        "405":
+          description: Invalid input
+components:
+  schemas:
+    HelloWorldResponseDto:
+      type: object
+      properties:
+        msg:
+          type: string
+          example: Hello World!
+      required:
+        - msg
+    ItemDto:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        priceFirstDay:
+          type: integer
+        pricePerDay:
+          type: integer
+        availability:
+          $ref: "#/components/schemas/AvailabilityDto"
+        pictures:
+          type: array
+          items:
+            $ref: "#/components/schemas/PictureDto"
+        avgRating:
+          $ref: "#/components/schemas/AggregatedRatingDto"
+        insuranceReq:
+          type: boolean
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryEnum"
+        lenderId:
+          type: string # Foreign key: references UserDto
+        address:
+          $ref: "#/components/schemas/AddressDto"
+        featuredUntil:
+          type: string
+          format: date-time
+      required:
+        - id
+        - title
+        - description
+        - priceFirstDay
+        - pricePerDay
+        - availability
+        - pictures
+        - avgRating
+        - insuranceReq
+        - categories
+        - lenderId
+    NewItemDto:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        priceFirstDay:
+          type: integer
+        pricePerDay:
+          type: integer
+        availability:
+          $ref: "#/components/schemas/AvailabilityDto"
+        pictures:
+          type: array
+          items:
+            $ref: "#/components/schemas/PictureDto"
+        insuranceReq:
+          type: boolean
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryEnum"
+        addressId:
+          type: string # Foreign key: references AddressDto
+      required:
+        - title
+        - description
+        - priceFirstDay
+        - pricePerDay
+        - availability
+        - pictures
+        - insuranceReq
+        - categories
+    ItemMetaDataDto:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        avgRating:
+          $ref: "#/components/schemas/AggregatedRatingDto"
+        priceFirstDay:
+          type: integer
+        pricePerDay:
+          type: integer
+        picture:
+          $ref: "#/components/schemas/PictureDto"
+        lenderName:
+          type: string
+        lenderPicture:
+          $ref: "#/components/schemas/PictureDto"
+        location:
+          $ref: "#/components/schemas/AddressDto"
+      required:
+        - id
+        - title
+        - avgRating
+        - priceFirstDay
+        - pricePerDay
+        - picture
+        - lenderName
+        - location
+    UserDto:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        description:
+          type: string
+        picture:
+          $ref: "#/components/schemas/PictureDto"
+        registeredSince:
+          type: string
+          format: date
+        avgRating:
+          $ref: "#/components/schemas/AggregatedRatingDto"
+        address:
+          $ref: "#/components/schemas/AddressDto"
+      required:
+        - id
+        - name
+        - email
+        - registeredSince
+        - avgRating
+        - address
+    NewUserDto:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        address:
+          $ref: "#/components/schemas/AddressDto"
+      required:
+        - name
+        - email
+        - password
+        - address
+    LoginDto:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+        - email
+        - password
+    RentalDto:
+      type: object
+      properties:
+        id:
+          type: string
+        start:
+          type: string
+          format: date
+        end:
+          type: string
+          format: date
+        price:
+          type: integer
+        insurancePrice:
+          type: integer
+        insuranceType:
+          $ref: "#/components/schemas/InsuranceTypeEnum"
+        itemId:
+          type: string # Foreign key: references ItemDto
+        renterId:
+          type: string # Foreign key: references UserDto
+        lenderId:
+          type: string # Foreign key: references UserDto
+        rentalState:
+          $ref: "#/components/schemas/RentalStateEnum"
+      required:
+        - id
+        - start
+        - end
+        - price
+        - insurancePrice
+        - insuranceType
+        - itemId
+        - renterId
+        - lenderId
+        - rentalState
+    NewRentalDto:
+      type: object
+      properties:
+        start:
+          type: string
+          format: date
+        end:
+          type: string
+          format: date
+        insuranceType:
+          $ref: "#/components/schemas/InsuranceTypeEnum"
+        itemId:
+          type: string # Foreign key: references ItemDto
+      required:
+        - start
+        - end
+        - insuranceType
+        - itemId
+    RatingDto:
+      type: object
+      properties:
+        id:
+          type: string
+        stars:
+          type: integer
+        text:
+          type: string
+        time:
+          type: string
+          format: date-time
+        authorId:
+          type: string # Foreign key: references UserDto
+        authorName:
+          type: string
+        authorPicture:
+          $ref: "#/components/schemas/PictureDto"
+      required:
+        - id
+        - stars
+        - text
+        - time
+        - authorId
+        - authorName
+    AggregatedRatingDto:
+      type: object
+      properties:
+        avgRating:
+          type: number
+          format: double
+        count:
+          type: integer
+      required:
+        - avgRating
+        - count
+    ItemRatingDto:
+      allOf:
+        - $ref: "#/components/schemas/RatingDto"
+        - type: object
+          properties:
+            ratedItemId:
+              type: string # Foreign key: references ItemDto
+      required:
+        - ratedItemId
+    UserRatingDto:
+      allOf:
+        - $ref: "#/components/schemas/RatingDto"
+        - type: object
+          properties:
+            ratedUserId:
+              type: string # Foreign key: references UserDto
+      required:
+        - ratedUserId
+    NewRatingDto:
+      type: object
+      properties:
+        stars:
+          type: integer
+        text:
+          type: string
+      required:
+        - stars
+        - text
+    AddressDto:
+      type: object
+      properties:
+        id:
+          type: string
+        street:
+          type: string
+        city:
+          type: string
+        zipCode:
+          type: string
+        latitude:
+          type: number
+          format: double
+        longitude:
+          type: number
+          format: double
+      required:
+        - id
+        - street
+        - city
+        - zipCode
+        - latitude
+        - longitude
+    ChatMessageDto:
+      type: object
+      properties:
+        id:
+          type: string
+        text:
+          type: string
+        time:
+          type: string
+          format: date-time
+        isRead:
+          type: boolean
+        isSystemMessage:
+          type: boolean
+        authorId:
+          type: string # Foreign key: references UserDto
+      required:
+        - id
+        - text
+        - time
+        - isRead
+        - isSystemMessage
+    NewChatMessageDto:
+      type: object
+      properties:
+        text:
+          type: string
+      required:
+        - text
+    PaymentDto:
+      type: object
+      properties:
+        id:
+          type: string
+        rentalAmount:
+          type: integer
+        insuranceAmount:
+          type: integer
+        paymentFromRenter:
+          type: string
+          format: date-time
+        paymentToLender:
+          type: string
+          format: date-time
+      required:
+        - id
+        - rentalAmount
+        - insuranceAmount
+    UserMetaDataDto:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        picture:
+          $ref: "#/components/schemas/PictureDto"
+        avgRating:
+          $ref: "#/components/schemas/AggregatedRatingDto"
+        registeredSince:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - avgRating
+        - registeredSince
+    HandoverDto:
+      type: object
+      properties:
+        id:
+          type: string
+        pictures:
+          type: array
+          items:
+            $ref: "#/components/schemas/PictureDto"
+        comment:
+          type: string
+        agreedRenter:
+          type: string
+          format: date-time
+        agreedLender:
+          type: string
+          format: date-time
+        handoverType:
+          $ref: "#/components/schemas/HandoverTypeEnum"
+      required:
+        - id
+        - pictures
+        - comment
+        - handoverType
+    NewHandoverDto:
+      type: object
+      properties:
+        pictures:
+          type: array
+          items:
+            $ref: "#/components/schemas/PictureDto"
+        comment:
+          type: string
+        handoverType:
+          $ref: "#/components/schemas/HandoverTypeEnum"
+      required:
+        - pictures
+        - comment
+        - handoverType
+    PictureDto:
+      type: object
+      properties:
+        url:
+          type: string
+      required:
+        - url
+    RentalMetadataDto:
+      type: object
+      properties:
+        id:
+          type: string
+        itemName:
+          type: string
+        renterName:
+          type: string
+        lenderName:
+          type: string
+        unreadMessages:
+          type: number
+        itemPicture:
+          $ref: "#/components/schemas/PictureDto"
+        role:
+          $ref: "#/components/schemas/RentalRoleEnum"
+      required:
+        - id
+        - itemName
+        - renterName
+        - lenderName
+        - unreadMessages
+        - itemPicture
+    AvailabilityDto:
+      type: object
+      properties:
+        whitelist:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimespanDto"
+        blacklist:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimespanDto"
+        availableWeekdays:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeekdayEnum"
+      required:
+        - whitelist
+        - blacklist
+        - availableWeekdays
+    TimespanDto:
+      type: object
+      properties:
+        start:
+          type: string
+          format: date
+        end:
+          type: string
+          format: date
+      required:
+        - start
+        - end
+    PaymentMethodDto:
+      type: object
+      properties:
+        id:
+          type: string
+        creditCardOwner:
+          type: string
+        creditCardNumber:
+          type: string
+        creditCardExpiryDate:
+          type: string
+        stripeId:
+          type: string
+      required:
+        - id
+        - creditCardOwner
+        - creditCardNumber
+        - creditCardExpiryDate
+        - stripeId
+    NewPaymentMethodDto:
+      type: object
+      properties:
+        creditCardOwner:
+          type: string
+        creditCardNumber:
+          type: string
+        creditCardExpiryDate:
+          type: string
+        stripeId:
+          type: string
+      required:
+        - creditCardOwner
+        - creditCardNumber
+        - creditCardExpiryDate
+        - stripeId
+    NewFeaturedDto:
+      type: object
+      properties:
+        durationInDays:
+          type: integer
+        paymentId:
+          type: string
+      required:
+        - durationInDays
+        - paymentId
+    WeekdayEnum:
+      type: string
+      enum:
+        - Monday
+        - Tuesday
+        - Wednesday
+        - Thursday
+        - Friday
+        - Saturday
+        - Sunday
+    CategoryEnum:
+      type: string
+      enum:
+        - Tools
+        - Electronics
+        - Garden
+        - Cleaning
+        - Cooking
+        - Clothing
+        - Accessories
+        - Music
+        - Other
+    RentalStateEnum:
+      type: string
+      enum:
+        - Offer
+        - Accepted
+        - Declined
+        - Paid
+        - PickedUp
+        - PickUpConfirmed
+        - Returned
+        - ReturnConfirmed
+        - Rated
+        - Closed
+    HandoverTypeEnum:
+      type: string
+      enum:
+        - Pickup
+        - Return
+    RentalRoleEnum:
+      type: string
+      enum:
+        - Renter
+        - Lender
+    InsuranceTypeEnum:
+      type: string
+      enum:
+        - None
+        - Basic
+        - Premium
+  securitySchemes:
+    JWT:
+      type: apiKey
+      in: header
+      name: X-JWT-Token
